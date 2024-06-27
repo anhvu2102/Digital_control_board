@@ -1,0 +1,116 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity top_mod is
+Port(
+    i_clk_12MHz: in std_logic;   
+--    i_clk_100MHz: in std_logic;
+    i_RX_serial: in std_logic;
+    
+    o_led_ready: out std_logic;
+    o_led_blink: out std_logic;
+    
+    o_SR_S0: out std_logic;
+    o_SR_S1: out std_logic;
+    o_SR_S2:out std_logic;
+    o_SR_S3: out std_logic;
+    
+    o_SR_nOE:out std_logic;
+    o_SR_nCLR:out std_logic;
+    o_SR_CLK:out std_logic;
+    o_SR_rCLK:out std_logic;
+    
+    o_DE_ena:out std_logic;
+    o_DE_ADD0:out std_logic;
+    o_DE_ADD1:out std_logic;
+    o_DE_ADD2:out std_logic  
+  
+);
+end top_mod;
+
+architecture str of top_mod is
+--signal r_clk_1Mhz: std_logic; --clk to test at a lower frequency
+signal r_RX_DV: std_logic;
+signal r_RX_Byte: std_logic_vector(7 downto 0);
+signal r_status_transfer: std_logic;
+
+signal r_arr_S0,r_arr_S1,r_arr_S2,r_arr_S3: std_logic_vector(9 downto 0);
+signal r_arr_dv: std_logic;
+signal r_de_ADD: integer range 0 to 4;
+
+begin
+
+--CLK_main: process(i_clk_12MHz)
+--variable i: integer range 0 to 11 := 0; 
+--begin
+--    if rising_edge(i_clk_12MHz) then
+--        if i<6 then
+--            i:=i+1;
+--            r_clk_1Mhz<='0';
+--        elsif i<11 then 
+--            r_clk_1Mhz<='1';
+--            i:=i+1;
+--        else  
+--            i:=0;
+--        end if;
+--     end if;
+--end process CLK_main;
+
+uart_block: entity work.UART_rx(RTL) 
+    port map(
+    i_clk=>i_clk_12MHz,
+    i_RX_serial=>i_RX_serial,
+    o_RX_DV=>r_RX_DV,
+    o_RX_Byte=>r_RX_Byte
+    );
+
+controller_block: entity work.Controller(Behavioral)
+port map(
+i_theta=>r_RX_Byte,
+i_RX_DV=>r_RX_DV,
+i_clk=>i_clk_12MHz,
+i_status_transfer=>r_status_transfer,
+
+o_led_blink=>o_led_blink,
+
+o_arr_S0=>r_arr_S0,
+o_arr_S1=>r_arr_S1,
+o_arr_S2=>r_arr_S2,
+o_arr_S3=>r_arr_S3,
+
+o_arr_dv=>r_arr_dv,
+o_de_ADD=>r_de_ADD,
+
+o_led_ready=>o_led_ready
+);
+
+transfer: entity work.transfer_block(Behavioral)
+port map(
+    i_clk=>i_clk_12MHz,
+    i_arr_S0=>r_arr_S0,
+    i_arr_S1=>r_arr_S1,
+    i_arr_S2=>r_arr_S2,
+    i_arr_S3=>r_arr_S3,
+    i_arr_dv=>r_arr_dv,
+    i_DE_ADD=>r_de_ADD,
+    
+    
+    o_status_transfer=>r_status_transfer,
+    o_SR_S0=>o_SR_S0,
+    o_SR_S1=>o_SR_S1,
+    o_SR_S2=>o_SR_S2,
+    o_SR_S3=>o_SR_S3,
+    
+    o_SR_nOE=>o_SR_nOE,
+    o_SR_nCLR=>o_SR_nCLR,
+    o_SR_CLK=>o_SR_CLK,
+    o_SR_rCLK=>o_SR_rCLK,
+    
+    o_DE_ena=>o_DE_ena,
+    o_DE_ADD0=>o_DE_ADD0,
+    o_DE_ADD1=>o_DE_ADD1,
+    o_DE_ADD2=>o_DE_ADD2 
+);
+end str;
