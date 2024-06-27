@@ -1,0 +1,179 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use ieee.numeric_std.all;
+
+
+entity transfer_block is
+    Port(
+        i_clk: in std_logic;
+        i_arr_S0: in std_logic_vector(9 downto 0);
+        i_arr_S1: in std_logic_vector(9 downto 0);
+        i_arr_S2: in std_logic_vector(9 downto 0);
+        i_arr_S3: in std_logic_vector(9 downto 0);
+        i_arr_dv: in std_logic;
+        i_DE_ADD: in integer range 0 to 4;
+        
+
+        o_status_transfer: out std_logic:='0';
+        o_SR_S0: out std_logic;
+        o_SR_S1: out std_logic;
+        o_SR_S2:out std_logic;
+        o_SR_S3: out std_logic;
+        
+        o_SR_nOE:out std_logic;
+        o_SR_nCLR:out std_logic;
+        o_SR_CLK:out std_logic;
+        o_SR_rCLK:out std_logic;
+        
+        o_DE_ena:out std_logic;
+        o_DE_ADD0:out std_logic;
+        o_DE_ADD1:out std_logic;
+        o_DE_ADD2:out std_logic  
+    );
+end transfer_block;
+
+architecture Behavioral of transfer_block is
+
+signal clk_inter: std_logic;
+
+signal r_DE_ADD_vector: std_logic_vector(2 downto 0);
+type t_SM_transfer is (s_tf_Idle, s_tf_trans);
+signal r_SM_current_tf: t_SM_transfer:= s_tf_Idle;
+
+--buffer input
+signal buf_i_S0: std_logic_vector(9 downto 0);
+signal buf_i_S1: std_logic_vector(9 downto 0);
+signal buf_i_S2: std_logic_vector(9 downto 0);
+signal buf_i_S3: std_logic_vector(9 downto 0);
+signal buf_i_add: integer range 0 to 4;
+
+
+--output signal of register
+signal r_SR_nOE:  std_logic:='1'; 
+signal r_SR_rCLK:  std_logic:='0';
+signal r_SR_nCLR:  std_logic:='0'; 
+signal r_SR_CLK:  std_logic:='0';  
+
+--output signal of SR
+signal r_SR_S0: std_logic:='0';
+signal r_SR_S1: std_logic:='0';
+signal r_SR_S2: std_logic:='0';
+signal r_SR_S3: std_logic:='0';
+
+-- output signal of Decoder
+signal r_DE_ena: std_logic:='0';
+signal r_DE_ADD0: std_logic:='0';
+signal r_DE_ADD1: std_logic:='0';
+signal r_DE_ADD2: std_logic:='0'; 
+
+begin
+GEN_CLK_SR: process(i_clk)
+variable i: integer range 0 to 4 := 0; 
+begin
+    if rising_edge(i_clk) then
+        if i<2 then
+            i:=i+1;
+            clk_inter<='0';
+        elsif i<3 then 
+            clk_inter<='1';
+            i:=i+1;
+        else  
+            i:=0;
+        end if;
+     end if;
+end process GEN_CLK_SR;
+
+TRANSFER: process (clk_inter)
+variable  k: integer range -1 to 9:=9;
+variable de_dv: integer:=0;
+variable check_transfer: std_logic:='0';
+variable counter_blink_led: integer range 0 to 1000000:=0;
+begin
+if falling_edge  (clk_inter) then
+    case r_SM_current_tf is 
+        when s_tf_Idle =>
+            r_SR_nOE<='1';
+            r_SR_rCLK<='0';
+            r_SR_nCLR<='0';
+              
+            r_SR_S0<='0';
+            r_SR_S1<='0';
+            r_SR_S2<='0';
+            r_SR_S3<='0';
+            
+            r_DE_ena<='0';
+            r_DE_ADD0<='0';
+            r_DE_ADD1<='0';
+            r_DE_ADD2<='0';
+            k:=9;
+            o_status_transfer<='0';
+            if i_arr_dv='1' then
+                r_SM_current_tf<=s_tf_trans;
+                check_transfer:='1';
+                o_status_transfer<='1';
+                
+                buf_i_S0<= i_arr_S0;
+                buf_i_S1<= i_arr_S1; 
+                buf_i_S2<= i_arr_S2;
+                buf_i_S3<= i_arr_S3;
+                buf_i_add<=i_DE_ADD;
+            end if;
+               
+        when s_tf_trans =>
+        
+            r_SR_nCLR<='1';
+            if k>0 or k=0 then
+                r_SR_S0<=buf_i_S0(k);
+                r_SR_S1<=buf_i_S1(k);
+                r_SR_S2<=buf_i_S2(k);
+                r_SR_S3<=buf_i_S3(k);
+                k:=k-1;
+             else
+                check_transfer:='0';
+                r_SR_nOE<='0';
+                r_SR_rCLK<='1';
+                if de_dv=0 then
+                    de_dv:=1;
+                
+                    r_DE_ADD_vector<=std_logic_vector(to_unsigned(buf_i_add,3));
+                elsif de_dv= 1 then  
+                    r_DE_ADD0<=r_DE_ADD_vector(0);
+                    r_DE_ADD1<=r_DE_ADD_vector(1);
+                    r_DE_ADD2<=r_DE_ADD_vector(2); 
+                    r_DE_ena<='0';
+                    de_dv:=de_dv+1; 
+                     
+                 else     
+                        de_dv:=0;
+                        r_DE_ena<='1';
+                        r_SM_current_tf<=s_tf_Idle;
+        
+                end if;
+              end if;     
+       end case;     
+end if;
+    if check_transfer='0' then
+        r_SR_CLK<='0';
+    else
+        r_SR_CLK<=clk_inter;
+    end if;
+end process TRANSFER;
+
+o_SR_S0<=r_SR_S0;
+o_SR_S1<=r_SR_S1;
+o_SR_S2<=r_SR_S2;
+o_SR_S3<=r_SR_S3;
+        
+o_SR_nOE<=r_SR_nOE;
+o_SR_nCLR<=r_SR_nCLR;
+o_SR_CLK<=r_SR_CLK;
+o_SR_rCLK<=r_SR_rCLK;
+        
+o_DE_ena<=r_DE_ena;
+o_DE_ADD0<=r_DE_ADD0;
+o_DE_ADD1<=r_DE_ADD1;
+o_DE_ADD2<=r_DE_ADD2;
+
+end Behavioral;
