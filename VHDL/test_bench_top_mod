@@ -1,0 +1,131 @@
+
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use std.env.finish;
+
+entity top_mod_tb is
+
+end top_mod_tb;
+
+
+architecture Behavioral of top_mod_tb is
+
+ -- Test Bench uses a 12 MHz Clock
+  constant c_CLK_PERIOD : time := 83.33 ns;
+  
+  -- Want to interface to 115200 baud UART
+  -- 12000000 / 115200 = 217 Clocks Per Bit.
+  constant c_CLKS_PER_BIT : integer := 104;
+
+  -- 1/115200:
+  constant c_BIT_PERIOD : time := 8680 ns;
+
+
+ -- Low-level byte-write
+  procedure UART_WRITE_BYTE (
+    i_Data_In       : in  std_logic_vector(7 downto 0);
+    signal o_Serial : out std_logic) is
+  begin
+
+    -- Send Start Bit
+    o_Serial <= '0';
+    wait for c_BIT_PERIOD;
+
+    -- Send Data Byte
+    for ii in 0 to 7 loop
+      o_Serial <= i_Data_In(ii);
+      wait for c_BIT_PERIOD;
+    end loop;  -- ii
+
+    -- Send Stop Bit
+    o_Serial <= '1';
+    wait for c_BIT_PERIOD;
+  end UART_WRITE_BYTE;
+
+signal i_clk_12MHzs:  std_logic:='0';   
+--signal i_clk_100MHzs:  std_logic:='0';
+signal i_RX_serials:  std_logic;
+    
+signal o_led_readys: std_logic;
+    
+signal o_SR_S0s:  std_logic;
+signal o_SR_S1s:  std_logic;
+signal o_SR_S2s:  std_logic;
+signal o_SR_S3s:  std_logic;
+    
+signal o_SR_nOEs: std_logic;
+signal o_SR_nCLRs:  std_logic;
+signal o_SR_CLKs: std_logic;
+signal o_SR_rCLKs: std_logic;
+    
+signal o_DE_enas: std_logic;
+signal o_DE_ADD0s: std_logic;
+signal o_DE_ADD1s: std_logic;
+signal o_DE_ADD2s: std_logic;  
+
+signal o_led_blinks: std_logic; 
+begin
+i_clk_12MHzs<= not i_clk_12MHzs after c_CLK_PERIOD/2;
+--i_clk_12MHzs<= not i_clk_12MHzs after 41.6ns;
+----i_clk_100MHzs<= not i_clk_100MHzs after 5ns;
+
+top_si: entity work.top_mod
+
+port map(
+i_clk_12MHz=> i_clk_12MHzs,
+--i_clk_100MHz=>i_clk_100MHzs,
+i_RX_serial=> i_RX_serials,
+    
+o_led_ready=> o_led_readys,
+o_led_blink=>o_led_blinks,
+    
+o_SR_S0=> o_SR_S0s,
+o_SR_S1=> o_SR_S1s,
+o_SR_S2=> o_SR_S2s,
+o_SR_S3=> o_SR_S3s,
+    
+o_SR_nOE=> o_SR_nOEs,
+o_SR_nCLR=> o_SR_nCLRs,
+o_SR_CLK=> o_SR_CLKs,
+o_SR_rCLK=> o_SR_rCLKs,
+    
+o_DE_ena=> o_DE_enas,
+o_DE_ADD0=> o_DE_ADD0s,
+o_DE_ADD1=> o_DE_ADD1s,
+o_DE_ADD2=> o_DE_ADD2s
+);
+
+  process
+  begin
+    -- Send a command to the UART
+    wait until rising_edge(i_clk_12MHzs);
+    UART_WRITE_BYTE(X"37", i_RX_serials);
+    wait until rising_edge(i_clk_12MHzs);
+
+    
+  end process;
+
+
+
+--stim: process
+--  begin
+  
+--i_RX_serials<='1'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+
+--i_RX_serials<='0'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+--i_RX_serials<='1'; wait for 8.68us;
+--i_RX_serials<='1'; wait for 8.68us;
+--i_RX_serials<='0'; wait for 8.68us;
+
+--i_RX_serials<='1'; wait for 8.68us;
+--wait for 800us;
+--finish;
+    
+--  end process stim;
+end Behavioral;
